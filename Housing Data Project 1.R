@@ -206,6 +206,8 @@ trsf[,x] <- 0
 #Ridge Regression
 ames.ridge <- cv.glmnet(x = as.matrix(trsf), y = salePriceLog, alpha=0)
 
+plot(ames.ridge$glmnet.fit, "lambda", label=FALSE)
+
 #Optimal tuning parameter
 best.lambda.ridge <- ames.ridge$lambda.min
 
@@ -229,6 +231,59 @@ which(is.na(submission), arr.ind=TRUE) #check for NA
 write.csv(submission, file="/Users/allisonking/Desktop/submission-ridge.csv",row.names = FALSE)
 
 #Elastic Net
+tcontrol <- trainControl(method="repeatedcv", number=10, repeats=5)
+
+ames.en <- train(as.matrix(trsf), salePriceLog,
+                 trControl=tcontrol, method="glmnet",metric = "RMSE", tuneLength=10)
+
+ames.en$bestTune
+
+ames.en.best <- ames.en$finalModel
+
+plot(ames.en.best)
+
+coef(ames.en.best, s=ames.en$bestTune$lambda)
+
+ames.predict.en <- predict(ames.en, trsf_test)
+
+ames.predict.en <- as.matrix(sapply(ames.predict.en, as.numeric))
+
+exp.ames.predict.en <- apply(ames.predict.en, 2, exp)
+
+submission <- cbind.data.frame(test$Id,exp.ames.predict.en)
+names(submission)[names(submission) == "test$Id"] <- "Id"
+names(submission)[names(submission) == "exp.ames.predict.en"] <- "SalePrice"
+
+#export files for submission to kaggle
+which(is.na(submission), arr.ind=TRUE) #check for NA
+write.csv(submission, file="/Users/allisonking/Desktop/submission-elasticnet.csv",row.names = FALSE)
 
 #LASSO
+#LASSO for feature selection
+lasso_fit <- cv.glmnet(x = as.matrix(trsf), y = salePriceLog, alpha = 1)
+
+plot(lasso_fit$glmnet.fit, "lambda", label=FALSE)
+
+#Optimal tuning parameter
+best.lambda.lasso <- lasso_fit$lambda.min
+
+#RMSE
+mse.min.lasso <- lasso_fit$cvm[lasso_fit$lambda == lasso_fit$lambda.min]
+sqrt(mse.min.lasso)
+
+#Check parameter estimates for the optimal model
+coef(lasso_fit, s=best.lambda.lasso)
+
+ames.predict.lasso <- predict(lasso_fit, newx=as.matrix(trsf_test), s=best.lambda.lasso)
+
+exp.ames.predict.lasso <- apply(ames.predict.lasso, 2, exp)
+
+submission <- cbind.data.frame(test$Id,exp.ames.predict.lasso)
+names(submission)[names(submission) == "test$Id"] <- "Id"
+names(submission)[names(submission) == "s1"] <- "SalePrice"
+
+#export files for submission to kaggle
+which(is.na(submission), arr.ind=TRUE) #check for NA
+write.csv(submission, file="/Users/allisonking/Desktop/submission-lasso.csv",row.names = FALSE)
+
 
