@@ -107,7 +107,9 @@ ggplot(ames_imp_12[!is.na(ames_imp_12$SalePrice),], aes(x=as.factor(Remodel), y=
   geom_label(stat = "count", aes(label = ..count.., y = ..count..), size=4) +
   scale_y_continuous(breaks= seq(0, 800000, by=50000), labels = comma) +
   theme_grey(base_size = 16) +
-  geom_hline(yintercept=163000, linetype="solid") + ggtitle("Remodeled Home by Sale Price")
+  geom_hline(yintercept=163000, linetype="solid") + ggtitle("Remodeled Home by Sale Price") +
+  labs(x = "Remodeled", y = "Sale Price")
+  
 
 #Graphing median sale price of home along with if the home is new or not
 ggplot(ames_imp_12[!is.na(ames_imp_12$SalePrice),], aes(x=as.factor(IsNew), y=SalePrice)) +
@@ -115,7 +117,8 @@ ggplot(ames_imp_12[!is.na(ames_imp_12$SalePrice),], aes(x=as.factor(IsNew), y=Sa
   geom_label(stat = "count", aes(label = ..count.., y = ..count..), size=4) +
   scale_y_continuous(breaks= seq(0, 800000, by=50000), labels = comma) +
   theme_grey(base_size = 16) +
-  geom_hline(yintercept=163000, linetype="solid") + ggtitle("New Home by Sale Price")
+  geom_hline(yintercept=163000, linetype="solid") + ggtitle("New Home by Sale Price") + 
+  labs(x = "New Home", y = "Sale Price")
 
 #Feature 4 
 #Also from Eric Bruin, adding a total square footage column
@@ -155,7 +158,7 @@ totCorr <- cor(total.2[,c(1,4,5,14,15,20,27:29,33:40,4,43,47,48,52,54,55,58:63)]
 #Natural cubic spline here
 #TotalBsmtSF & SalePrice has a curved/exponential shape in the scatterplot - good candidate for NS
 ggplot(total.2, aes(x=TotalBsmtSF, y=SalePrice)) +
-  geom_point(size=2, shape=23)
+  geom_point(size=2, shape=23) + ggtitle("Sale Price vs Total Basement Square Footage")
 
 #Create a natural spline with 5 df for the "TotalBsmtSF" column
 TotalBsmtSF.spline <- ns(total.2$TotalBsmtSF, df=5)
@@ -204,21 +207,24 @@ trsf[,x] <- 0
 
 
 #Ridge Regression
-ames.ridge <- cv.glmnet(x = as.matrix(trsf), y = salePriceLog, alpha=0)
+tcontrol <- trainControl(method="repeatedcv", number=10, repeats=5)
 
-plot(ames.ridge$glmnet.fit, "lambda", label=FALSE)
+tuneParam.ridge <- expand.grid(alpha = 0, lambda = 10^seq(2, -2, length=25))
 
-#Optimal tuning parameter
-best.lambda.ridge <- ames.ridge$lambda.min
+set.seed(123)
 
-#RMSE
-mse.min <- ames.ridge$cvm[ames.ridge$lambda == ames.ridge$lambda.min]
-sqrt(mse.min)
+model.ridge <- train(as.matrix(trsf), salePriceLog,
+                trControl=tcontrol, method="glmnet", metric = "RMSE", tuneGrid = tuneParam.ridge)
 
-#Check parameter estimates for the optimal model
-coef(ames.ridge, s=best.lambda.ridge)
+model.ridge$bestTune
 
-ames.predict.ridge <- predict(ames.ridge, newx=as.matrix(trsf_test), s=best.lambda.ridge)
+model.ridge.final <- model.ridge$finalModel
+
+coef(model.ridge.final, alpha=model.ridge$bestTune$alpha, s=model.ridge$bestTune$lambda)
+
+plot(model.ridge.final)
+
+ames.predict.ridge <- predict(model.ridge.final, newx=as.matrix(trsf_test), s=model.ridge$bestTune$lambda)
 
 exp.ames.predict.ridge <- apply(ames.predict.ridge, 2, exp)
 
@@ -259,22 +265,24 @@ which(is.na(submission), arr.ind=TRUE) #check for NA
 write.csv(submission, file="/Users/allisonking/Desktop/submission-elasticnet.csv",row.names = FALSE)
 
 #LASSO
-#LASSO for feature selection
-lasso_fit <- cv.glmnet(x = as.matrix(trsf), y = salePriceLog, alpha = 1)
+tcontrol <- trainControl(method="repeatedcv", number=10, repeats=5)
 
-plot(lasso_fit$glmnet.fit, "lambda", label=FALSE)
+tuneParam.lasso <- expand.grid(alpha = 1, lambda = 10^seq(2, -2, length=25))
 
-#Optimal tuning parameter
-best.lambda.lasso <- lasso_fit$lambda.min
+set.seed(123)
 
-#RMSE
-mse.min.lasso <- lasso_fit$cvm[lasso_fit$lambda == lasso_fit$lambda.min]
-sqrt(mse.min.lasso)
+model.lasso <- train(as.matrix(trsf), salePriceLog,
+                     trControl=tcontrol, method="glmnet", metric = "RMSE", tuneGrid = tuneParam.lasso)
 
-#Check parameter estimates for the optimal model
-coef(lasso_fit, s=best.lambda.lasso)
+model.lasso$bestTune
 
-ames.predict.lasso <- predict(lasso_fit, newx=as.matrix(trsf_test), s=best.lambda.lasso)
+model.lasso.final <- model.lasso$finalModel
+
+coef(model.lasso.final, alpha=model.lasso$bestTune$alpha, s=model.lasso$bestTune$lambda)
+
+plot(model.lasso.final)
+
+ames.predict.lasso <- predict(model.lasso.final, newx=as.matrix(trsf_test), s=model.lasso$bestTune$lambda)
 
 exp.ames.predict.lasso <- apply(ames.predict.lasso, 2, exp)
 
