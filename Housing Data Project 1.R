@@ -101,25 +101,6 @@ ames_imp_12$HouseAge <- as.numeric(ames_imp_12$YrSold) - ames_imp_12$YearRemodAd
 #Creating "IsNew" column to see how many houses are new, 0 = Not new, 1 = new
 ames_imp_12$IsNew <- ifelse(ames_imp_12$YrSold == ames_imp_12$YearBuilt, 1, 0)
 
-#Graphing median sale price of home along with if the home has been remodeled or not
-ggplot(ames_imp_12[!is.na(ames_imp_12$SalePrice),], aes(x=as.factor(Remodel), y=SalePrice)) +
-  geom_bar(stat='summary', fun.y = "median", fill='pink') +
-  geom_label(stat = "count", aes(label = ..count.., y = ..count..), size=4) +
-  scale_y_continuous(breaks= seq(0, 800000, by=50000), labels = comma) +
-  theme_grey(base_size = 16) +
-  geom_hline(yintercept=163000, linetype="solid") + ggtitle("Remodeled Home by Sale Price") +
-  labs(x = "Remodeled", y = "Sale Price")
-  
-
-#Graphing median sale price of home along with if the home is new or not
-ggplot(ames_imp_12[!is.na(ames_imp_12$SalePrice),], aes(x=as.factor(IsNew), y=SalePrice)) +
-  geom_bar(stat='summary', fun.y = "median", fill='orange') +
-  geom_label(stat = "count", aes(label = ..count.., y = ..count..), size=4) +
-  scale_y_continuous(breaks= seq(0, 800000, by=50000), labels = comma) +
-  theme_grey(base_size = 16) +
-  geom_hline(yintercept=163000, linetype="solid") + ggtitle("New Home by Sale Price") + 
-  labs(x = "New Home", y = "Sale Price")
-
 #Feature 4 
 #Also from Eric Bruin, adding a total square footage column
 ames_imp_12$TotalSqFt <- ames_imp_12$GrLivArea + ames_imp_12$TotalBsmtSF
@@ -142,39 +123,44 @@ ames_imp_12$TotalPorchSF <- ames_imp_12$OpenPorchSF + ames_imp_12$EnclosedPorch 
 #From Eric Bruin - Adding up bathrooms
 ames_imp_12$TotBathrooms <- ames_imp_12$FullBath + (ames_imp_12$HalfBath*0.5) + ames_imp_12$BsmtFullBath + (ames_imp_12$BsmtHalfBath*0.5)
 
+#Remove original columns after feature engineering
+ames_imp_12.1 <- ames_imp_12[,!names(ames_imp_12) %in% c("HalfBath", "BsmtFullBath", "BsmtHalfBath", "OpenPorchSF", "EnclosedPorch",
+                                                         "X3SsnPorch", "ScreenPorch", "GrLivArea", "TotalBsmtSF", "YrSold",
+                                                         "YearBuilt", "YearRemodAdd", "FullBath")]
+
 #Problem 2
 #Calculate skewness for every numeric column in the dataset
-num_ames_imp <- ames_imp_12[,c(1,4,5,19,20,26,34,36:38,43:52,54,56,60,61,65:70,74:76,79:85)]
+num_ames_imp <- ames_imp_12.1[,c(1,4,5,24,32,34,35,40:44,46,48,52,53,57,58,62,63,66,75:81)]
 skewValues <- apply(num_ames_imp, 2, skewness)
 head(skewValues)
 
 #Identify and remove predictors with near-zero variance
-nearZeroVar(ames_imp_12)
-colnames(ames_imp_12)[nearZeroVar(ames_imp_12)]
-total.2 <- ames_imp_12[,-nearZeroVar(ames_imp_12)]
-totCorr <- cor(total.2[,c(1,4,5,14,15,20,27:29,33:40,4,43,47,48,52,54,55,58:63)])
-
+nearZeroVar(ames_imp_12.1)
+colnames(ames_imp_12.1)[nearZeroVar(ames_imp_12.1)]
+#Removing all variables but SalePrice
+total.2 <- ames_imp_12.1[,-nearZeroVar(ames_imp_12.1)]
+totCorr <- cor(total.2[,c(1,4,5,18,25,26,30,31,32,34,35,39,40,44,46,49:55)])
 
 #Natural cubic spline here
-#TotalBsmtSF & SalePrice has a curved/exponential shape in the scatterplot - good candidate for NS
-ggplot(total.2, aes(x=TotalBsmtSF, y=SalePrice)) +
-  geom_point(size=2, shape=23) + ggtitle("Sale Price vs Total Basement Square Footage")
+#GarageArea & SalePrice has a curved/exponential shape in the scatterplot - good candidate for NS
+ggplot(total.2, aes(x=GarageArea, y=SalePrice)) +
+  geom_point(size=2, shape=23) + ggtitle("Sale Price vs Garage Area")
 
-#Create a natural spline with 5 df for the "TotalBsmtSF" column
-TotalBsmtSF.spline <- ns(total.2$TotalBsmtSF, df=5)
+#Create a natural spline with 5 df for the "GarageArea" column
+GarageArea.spline <- ns(total.2$GarageArea, df=5)
 
 #Combine the original data with the spline data
-ames_imp_12.2 <- cbind(total.2, TotalBsmtSF.spline)
+ames_imp_12.2 <- cbind(total.2, GarageArea.spline)
 
 #Give the basis functions more reasonable column names
-colnames(ames_imp_12.2)[65:69] <- c('TotalBsmtSF.NS1', 'TotalBsmtSF.NS2', 'TotalBsmtSF.NS3',
-                                    'TotalBsmtSF.NS4', 'TotalBsmtSF.NS5')
+colnames(ames_imp_12.2)[56:60] <- c('GarageArea.NS1', 'GarageArea.NS2', 'GarageArea.NS3',
+                                    'GarageArea.NS4', 'GarageArea.NS5')
 
 #Check to make sure everything worked
 head(ames_imp_12.2)
 
 #Removing original column 
-ames_imp_12.2 <- ames_imp_12.2 %>% dplyr::select(-TotalBsmtSF)
+ames_imp_12.2 <- ames_imp_12.2 %>% dplyr::select(-GarageArea)
 
 #Lastly, need to dummy encode categorical variables for data
 dmy <- dummyVars(" ~ .", data = ames_imp_12.2, fullRank=T)
