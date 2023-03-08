@@ -51,11 +51,52 @@ IQR(demo1$episode_date)
 IQR(demo1$epino)
 IQR(demo1$dage)
 
-#Replace negatves with NAs
+#Categorical percentages
+demo1 %>% group_by(DEP) %>% summarise(Percentage=n()/nrow(.))
+demo1 %>% group_by(BIP) %>% summarise(Percentage=n()/nrow(.))
+demo1 %>% group_by(ALCOHOL) %>% summarise(Percentage=n()/nrow(.))
+demo1 %>% group_by(DRUG_PHX) %>% summarise(Percentage=n()/nrow(.))
+demo1 %>% group_by(SUIC_PHX) %>% summarise(Percentage=n()/nrow(.))
+demo1 %>% group_by(SEX) %>% summarise(Percentage=n()/nrow(.))
+demo1 %>% group_by(HSPNC) %>% summarise(Percentage=n()/nrow(.))
+demo1 %>% group_by(WHITE) %>% summarise(Percentage=n()/nrow(.))
+demo1 %>% group_by(BLACK) %>% summarise(Percentage=n()/nrow(.))
+demo1 %>% group_by(ASIAN) %>% summarise(Percentage=n()/nrow(.))
+demo1 %>% group_by(AMIND) %>% summarise(Percentage=n()/nrow(.))
+demo1 %>% group_by(HAWAI) %>% summarise(Percentage=n()/nrow(.))
+
+#Replace negatives with NAs
 demo1$epino <- replace(demo1$epino, which(demo1$epino < 0), NA)
 demo1$dage <- replace(demo1$dage, which(demo1$dage < 0), NA)
+demo1$DEP <- replace(demo1$DEP, which(demo1$DEP < -3), NA)
+demo1$BIP <- replace(demo1$BIP, which(demo1$BIP < -3), NA)
+demo1$ALCOHOL <- replace(demo1$ALCOHOL, which(demo1$ALCOHOL < -3), NA)
+demo1$DRUG_PHX <- replace(demo1$DRUG_PHX, which(demo1$DRUG_PHX < -3), NA)
+demo1$SUIC_PHX <- replace(demo1$SUIC_PHX, which(demo1$SUIC_PHX < -3), NA)
+demo1$HSPNC <- replace(demo1$HSPNC, which(demo1$HSPNC < 0), NA)
 
+#Problem 1 Part D
+#Based on counts, split up into white and other
+demo1$OTHER <- ifelse(demo1$ASIAN == 1, 1, ifelse(demo1$AMIND == 1, 1, ifelse(demo1$BLACK == 1, 1, ifelse(demo1$HAWAI == 1, 1, 0))))
 
+#Problem 1 Part E
+demo1$Any.Fam.Psyc.Hist <- ifelse(demo1$DEP == 1, 1, ifelse(demo1$BIP == 1, 1, ifelse(demo1$ALCOHOL == 1, 1, ifelse(demo1$DRUG_PHX == 1, 1, 
+                           ifelse(demo1$SUIC_PHX == 1, 1, 0)))))
+
+#Problem 2 Part A
+#Spaghetti plot 
+ggplot(data = qids.3, aes(x = WEEK, y = QSTOT, group = ID)) + geom_line(linetype="dashed", color = "blue") + 
+  theme_bw() + scale_x_continuous(breaks = c(0,2,4,6,9,12,14), name = "Week") + scale_y_continuous(name = "QIDS Score") + 
+  ggtitle("Spaghetti Plot of QIDS Score by Week for Each Subject")
+
+#Problem 2 Part B
+#Jitter the data
+qids.3$jweek <- jitter(qids.3$WEEK)
+with(qids.3, head(cbind(ID, WEEK, jweek), n = 14))
+
+ggplot(data = qids.3, aes(x = jweek, y = QSTOT)) + geom_point(shape = 1) + scale_x_continuous(breaks = c(0,2,4,6,9,12,14), name = "Week") + 
+  scale_y_continuous(name = "QIDS Score") + stat_summary(fun = mean, geom = "point", size=2, shape = 19) + 
+  stat_smooth(se = FALSE, color = "purple") + ggtitle("QIDS Score by Week for Each Subject with Loess Curve")
 
 
 
